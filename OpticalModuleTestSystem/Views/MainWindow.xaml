@@ -1,140 +1,924 @@
-﻿<Window x:Class="OpticalModuleTestSystem.MainWindow"
+﻿<Window x:Class="OpticalModuleTestSystem.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="光模块测试系统 V1.0"
-        Height="880" Width="1180"
-        WindowStartupLocation="CenterScreen" FontSize="14">
-    <Grid Margin="15">
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:OpticalModuleTestSystem.ViewModels"
+        mc:Ignorable="d"
+        Title="光模块自动化测试系统 v2.0" 
+        Height="900" Width="1400"
+        WindowStartupLocation="CenterScreen" Background="#FFF0F4F8">
+
+    <Window.Resources>
+        <!-- 样式资源 -->
+        <SolidColorBrush x:Key="PrimaryColor" Color="#FF6B9DFF"/>
+        <SolidColorBrush x:Key="SuccessColor" Color="#4CD964"/>
+        <SolidColorBrush x:Key="WarningColor" Color="#FF9500"/>
+        <SolidColorBrush x:Key="DangerColor" Color="#FF3B30"/>
+        <SolidColorBrush x:Key="InfoColor" Color="#5AC8FA"/>
+        <SolidColorBrush x:Key="BgLight" Color="#E8F4FD"/>
+        <SolidColorBrush x:Key="BgCard" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="TextPrimary" Color="#1C1C1E"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#8E8E93"/>
+        <SolidColorBrush x:Key="BorderColor" Color="#D1D1D6"/>
+
+        <!-- 通用按钮样式 -->
+        <Style x:Key="BtnPrimary" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource PrimaryColor}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FF5A8AE6"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#CCCCCC"/>
+                    <Setter Property="Opacity" Value="0.6"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="BtnWarning" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
+            <Setter Property="Background" Value="{StaticResource WarningColor}"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E68600"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="BtnSuccess" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
+            <Setter Property="Background" Value="{StaticResource SuccessColor}"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3CB853"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="BtnDanger" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
+            <Setter Property="Background" Value="{StaticResource DangerColor}"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E6352B"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 小按钮样式 -->
+        <Style x:Key="BtnSmall" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource BgCard}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource BgLight}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 卡片边框样式 -->
+        <Style x:Key="CardBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource BgCard}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect ShadowDepth="1" BlurRadius="6" Opacity="0.08" Color="#000000"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 区域标题样式 -->
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource PrimaryColor}"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <!-- 数据标签样式 -->
+        <Style x:Key="DataLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="DataValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- 状态指示器 -->
+        <Style x:Key="StatusIndicator" TargetType="Ellipse">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Margin" Value="4,0"/>
+        </Style>
+
+        <!-- 字符串转颜色转换器 -->
+        <vm:StringToBrushConverter x:Key="StringToBrushConverter"/>
+        <vm:BoolToConnectionBrushConverter x:Key="BoolToConnectionBrushConverter"/>
+        <vm:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <vm:InverseBoolConverter x:Key="InverseBoolConverter"/>
+        <vm:PowerModeConverter x:Key="PowerModeConverter"/>
+    </Window.Resources>
+
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="220"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="30"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- 标题 -->
-        <TextBlock Grid.Row="0" FontSize="20" FontWeight="Bold"
-                   HorizontalAlignment="Center" Margin="0 0 15 15">
-            光模块自动化测试系统
-        </TextBlock>
-
-        <!-- ==================== GPIB 仪器状态区 ==================== -->
-        <GroupBox Grid.Row="1" Header="GPIB 仪器连接与初始化" Margin="0 0 0 10" Padding="10">
+        <!-- ========== 顶部标题栏 ========== -->
+        <Border Grid.Row="0" Background="{StaticResource PrimaryColor}" Padding="16,10">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-
-                <DataGrid x:Name="DataGrid_Instruments"
-                          ItemsSource="{Binding Instruments}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          RowHeight="30">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="GPIB地址" Binding="{Binding GpibAddress}" Width="80"/>
-                        <DataGridTextColumn Header="仪器名称" Binding="{Binding Name}" Width="150"/>
-                        <DataGridTextColumn Header="型号" Binding="{Binding Model}" Width="150"/>
-                        <DataGridTextColumn Header="状态" Binding="{Binding Status}" Width="120"/>
-                        <DataGridTemplateColumn Header="状态灯" Width="80">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Ellipse Width="16" Height="16" Fill="{Binding StatusColor}"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTextColumn Header="IDN信息" Binding="{Binding IdnString}" Width="*"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-
-                <StackPanel Grid.Column="1" Margin="15 0 0 0" VerticalAlignment="Center">
-                    <Button Content="扫描仪器" Command="{Binding ScanInstrumentsCommand}" Width="130" Height="40" Margin="0 0 0 10"/>
-                    <Button Content="一键初始化" Command="{Binding InitializeAllCommand}" Width="130" Height="40"/>
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Text="&#x1F52C;" FontSize="24" Margin="0,0,12,0"/>
+                    <StackPanel>
+                        <TextBlock Text="光模块自动化测试系统" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock Text="Optical Module Automated Test System v2.0" FontSize="11" 
+                                   Foreground="#CCFFFFFF" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="#33FFFFFF" CornerRadius="16" Padding="12,4" Margin="0,0,8,0">
+                        <TextBlock Text="{Binding TestStatus}" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
+                    </Border>
+                    <Ellipse Width="12" Height="12" Fill="{Binding TestStatusColor}" Margin="4,0"/>
                 </StackPanel>
             </Grid>
-        </GroupBox>
+        </Border>
 
-        <Separator Grid.Row="2" Margin="0 10"/>
-
-        <!-- ==================== DDM 光模块监控 + 告警规格 ==================== -->
-        <GroupBox Grid.Row="3" Header="光模块 DDM 实时监控 + 规格告警" Padding="15">
+        <!-- ========== 主内容区 ========== -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="8">
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="360"/>
-                    <ColumnDefinition Width="360"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <!-- 左侧：实时参数 -->
-                <StackPanel Grid.Column="0" Margin="0 0 20 0">
-                    <TextBlock Text="实时监测值" FontSize="16" FontWeight="Bold" Margin="0 0 0 10"/>
+                <!-- ===== 第一行：设备检测 + 模块信息 + 告警 ===== -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="380"/>
+                    </Grid.ColumnDefinitions>
 
-                    <TextBlock Text="温度" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_Temp" IsReadOnly="True" Height="30" Background="#f8f9fa"/>
+                    <!-- 区域1: 设备连接自动检测 -->
+                    <Border Grid.Column="0" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="&#x1F4E1; 设备连接自动检测" Style="{StaticResource SectionTitle}"/>
+                            <StackPanel Grid.Row="1" Margin="0,4">
+                                <!-- 仪器状态列表 -->
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Style="{StaticResource StatusIndicator}" 
+                                             Fill="{Binding IsOscilloscopeConnected, Converter={StaticResource BoolToConnectionBrushConverter}}"/>
+                                    <TextBlock Grid.Column="1" Text="示波器 (86100D)" Style="{StaticResource DataLabel}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Style="{StaticResource StatusIndicator}" 
+                                             Fill="{Binding IsSpectrumAnalyzerConnected, Converter={StaticResource BoolToConnectionBrushConverter}}"/>
+                                    <TextBlock Grid.Column="1" Text="光谱仪 (MS9740A)" Style="{StaticResource DataLabel}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Style="{StaticResource StatusIndicator}" 
+                                             Fill="{Binding IsOpticalSwitchConnected, Converter={StaticResource BoolToConnectionBrushConverter}}"/>
+                                    <TextBlock Grid.Column="1" Text="光开关" Style="{StaticResource DataLabel}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Style="{StaticResource StatusIndicator}" 
+                                             Fill="{Binding IsAttenuatorConnected, Converter={StaticResource BoolToConnectionBrushConverter}}"/>
+                                    <TextBlock Grid.Column="1" Text="光衰减器 (IQS-3150)" Style="{StaticResource DataLabel}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Style="{StaticResource StatusIndicator}" 
+                                             Fill="{Binding IsPlatformConnected, Converter={StaticResource BoolToConnectionBrushConverter}}"/>
+                                    <TextBlock Grid.Column="1" Text="光综合平台" Style="{StaticResource DataLabel}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Style="{StaticResource StatusIndicator}" 
+                                             Fill="{Binding IsThermalFlowConnected, Converter={StaticResource BoolToConnectionBrushConverter}}"/>
+                                    <TextBlock Grid.Column="1" Text="热流仪" Style="{StaticResource DataLabel}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Style="{StaticResource StatusIndicator}" 
+                                             Fill="{Binding IsTempControllerConnected, Converter={StaticResource BoolToConnectionBrushConverter}}"/>
+                                    <TextBlock Grid.Column="1" Text="三温一体机 (AST-545)" Style="{StaticResource DataLabel}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Style="{StaticResource StatusIndicator}" 
+                                             Fill="{Binding IsBertConnected, Converter={StaticResource BoolToConnectionBrushConverter}}"/>
+                                    <TextBlock Grid.Column="1" Text="误码仪 (MP1900A)" Style="{StaticResource DataLabel}"/>
+                                </Grid>
+                            </StackPanel>
+                            <Button Grid.Row="2" Content="&#x1F50D; 扫描仪器" Style="{StaticResource BtnPrimary}" 
+                                    Command="{Binding ScanInstrumentsCommand}" Margin="0,8,0,0"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
+                        </Grid>
+                    </Border>
 
-                    <TextBlock Text="电压" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_Volt" IsReadOnly="True" Height="30" Background="#f8f9fa"/>
+                    <!-- 区域2: 光模块信息 + DDM数据 -->
+                    <Border Grid.Column="1" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
 
-                    <TextBlock Text="偏置电流" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_Bias" IsReadOnly="True" Height="30" Background="#f8f9fa"/>
+                            <!-- 封装/协议/速率选择 -->
+                            <!-- ===== 封装 / 通讯协议 / 速率 / 调制方式 / 初始化 ===== -->
+                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
 
-                    <TextBlock Text="发射光功率" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_TxPower" IsReadOnly="True" Height="30" Background="#f8f9fa"/>
+                                <!-- Col 0: 封装（1列） -->
+                                <ComboBox Grid.Column="0" SelectedItem="{Binding SelectedPackage}" Margin="2">
+                                    <ComboBoxItem Content="SFP+"/>
+                                    <ComboBoxItem Content="QSFP28"/>
+                                    <ComboBoxItem Content="QSFP-DD"/>
+                                    <ComboBoxItem Content="SFP28"/>
+                                </ComboBox>
 
-                    <TextBlock Text="接收光功率" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_RxPower" IsReadOnly="True" Height="30" Background="#f8f9fa"/>
+                                <!-- Col 1: 通讯协议（2列中的第1列） -->
+                                <!-- 光口协议：SFF-8472 / SFF-8636 / CMIS -->
+                                <ComboBox Grid.Column="1" SelectedItem="{Binding SelectedOpticalProtocol}" Margin="2" 
+                                          Visibility="{Binding IsElectricPort, Converter={StaticResource InverseBoolConverter}}">
+                                    <ComboBoxItem Content="SFF-8472"/>
+                                    <ComboBoxItem Content="SFF-8636"/>
+                                    <ComboBoxItem Content="CMIS"/>
+                                </ComboBox>
+                                <!-- 电口协议（请根据实际设备替换为真实协议名称） -->
+                                <ComboBox Grid.Column="1" SelectedItem="{Binding SelectedElectricProtocol}" Margin="2"
+                                          Visibility="{Binding IsElectricPort, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ComboBoxItem Content="1000BASE-T"/>
+                                    <ComboBoxItem Content="10GBASE-T"/>
+                                    <ComboBoxItem Content="25GBASE-CR"/>
+                                </ComboBox>
 
-                    <Button x:Name="Btn_AutoDDM" Content="自动读取DDM" Margin="0 15 0 0" Height="40"/>
-                    <Button x:Name="Btn_StopDDM" Content="停止读取" Margin="0 10 0 0" Height="40"/>
-                </StackPanel>
+                                <!-- Col 2: 速率（2列中的第2列） -->
+                                <!-- 光口速率 -->
+                                <ComboBox Grid.Column="2" SelectedItem="{Binding SelectedOpticalRate}" Margin="2"
+                                          Visibility="{Binding IsElectricPort, Converter={StaticResource InverseBoolConverter}}">
+                                    <ComboBoxItem Content="10G"/>
+                                    <ComboBoxItem Content="25G"/>
+                                    <ComboBoxItem Content="100G"/>
+                                    <ComboBoxItem Content="400G"/>
+                                </ComboBox>
+                                <!-- 电口速率 -->
+                                <ComboBox Grid.Column="2" SelectedItem="{Binding SelectedElectricRate}" Margin="2"
+                                          Visibility="{Binding IsElectricPort, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ComboBoxItem Content="1G"/>
+                                    <ComboBoxItem Content="10G"/>
+                                    <ComboBoxItem Content="25G"/>
+                                </ComboBox>
 
-                <!-- 中间：规格值（告警阈值）-->
-                <StackPanel Grid.Column="1" Margin="0 0 20 0">
-                    <TextBlock Text="模块规格值(从DDM读取)" FontSize="16" FontWeight="Bold" Margin="0 0 0 10"/>
+                                <!-- Col 3: 调制方式（1列） -->
+                                <ComboBox Grid.Column="3" SelectedItem="{Binding SelectedModulation}" Margin="2">
+                                    <ComboBoxItem Content="NRZ"/>
+                                    <ComboBoxItem Content="PAM4"/>
+                                </ComboBox>
 
-                    <TextBlock Text="温度上限" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_Temp_High" IsReadOnly="True" Height="30" Background="#f1f8e9"/>
+                                <!-- Col 4: 初始化按钮（1列） -->
+                                <Button Grid.Column="4" Content="&#x2699; 初始化" Style="{StaticResource BtnPrimary}" 
+            Command="{Binding InitializeAllCommand}" Margin="2"
+            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
+                            </Grid>
 
-                    <TextBlock Text="温度下限" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_Temp_Low" IsReadOnly="True" Height="30" Background="#f1f8e9"/>
+                            <!-- 模块基本信息 -->
+                            <Grid Grid.Row="1" Margin="0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                    <TextBlock Text="厂家：" Style="{StaticResource DataLabel}" Width="50"/>
+                                    <TextBlock Text="{Binding ModuleInfo.Manufacturer}" Style="{StaticResource DataValue}" 
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="4">
+                                    <TextBlock Text="型号：" Style="{StaticResource DataLabel}" Width="50"/>
+                                    <TextBlock Text="{Binding ModuleInfo.Model}" Style="{StaticResource DataValue}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                    <TextBlock Text="日期：" Style="{StaticResource DataLabel}" Width="50"/>
+                                    <TextBlock Text="{Binding ModuleInfo.DateCode}" Style="{StaticResource DataValue}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="4">
+                                    <TextBlock Text="SN：" Style="{StaticResource DataLabel}" Width="50"/>
+                                    <TextBlock Text="{Binding ModuleInfo.SerialNumber}" Style="{StaticResource DataValue}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </Grid>
 
-                    <TextBlock Text="电压上限" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_Vcc_High" IsReadOnly="True" Height="30" Background="#f1f8e9"/>
+                            <!-- DDM实时数据 -->
+                            <TextBlock Grid.Row="2" Text="&#x1F4CA; DDM实时监测" Style="{StaticResource SectionTitle}" Margin="0,8,0,4"/>
+                            <Grid Grid.Row="3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
 
-                    <TextBlock Text="电压下限" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_Vcc_Low" IsReadOnly="True" Height="30" Background="#f1f8e9"/>
+                                <!-- TEMP -->
+                                <Border Grid.Row="0" Grid.Column="0" Background="{StaticResource BgLight}" CornerRadius="8" Padding="10" Margin="4">
+                                    <StackPanel>
+                                        <TextBlock Text="&#x1F321; 温度 (TEMP)" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBlock Text="{Binding RealTime.Temperature, StringFormat='{}{0:F2} &#x2103;'}" 
+                                                   FontSize="20" FontWeight="Bold" Foreground="{StaticResource PrimaryColor}"/>
+                                    </StackPanel>
+                                </Border>
+                                <!-- VCC -->
+                                <Border Grid.Row="0" Grid.Column="1" Background="{StaticResource BgLight}" CornerRadius="8" Padding="10" Margin="4">
+                                    <StackPanel>
+                                        <TextBlock Text="&#x26A1; 电压 (VCC)" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBlock Text="{Binding RealTime.Voltage, StringFormat='{}{0:F3} V'}" 
+                                                   FontSize="20" FontWeight="Bold" Foreground="{StaticResource SuccessColor}"/>
+                                    </StackPanel>
+                                </Border>
+                                <!-- BIAS -->
+                                <Border Grid.Row="0" Grid.Column="2" Background="{StaticResource BgLight}" CornerRadius="8" Padding="10" Margin="4">
+                                    <StackPanel>
+                                        <TextBlock Text="&#x1F50B; 偏置电流" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBlock Text="{Binding RealTime.BiasCurrent, StringFormat='{}{0:F2} mA'}" 
+                                                   FontSize="20" FontWeight="Bold" Foreground="{StaticResource WarningColor}"/>
+                                    </StackPanel>
+                                </Border>
+                                <!-- TX Power -->
+                                <Border Grid.Row="1" Grid.Column="0" Background="{StaticResource BgLight}" CornerRadius="8" Padding="10" Margin="4">
+                                    <StackPanel>
+                                        <TextBlock Text="&#x1F4E4; 发射功率 (TX)" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBlock Text="{Binding RealTime.TxPower, StringFormat='{}{0:F2} dBm'}" 
+                                                   FontSize="20" FontWeight="Bold" Foreground="{StaticResource InfoColor}"/>
+                                    </StackPanel>
+                                </Border>
+                                <!-- RX Power -->
+                                <Border Grid.Row="1" Grid.Column="1" Background="{StaticResource BgLight}" CornerRadius="8" Padding="10" Margin="4">
+                                    <StackPanel>
+                                        <TextBlock Text="&#x1F4E5; 接收功率 (RX)" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBlock Text="{Binding RealTime.RxPower, StringFormat='{}{0:F2} dBm'}" 
+                                                   FontSize="20" FontWeight="Bold" Foreground="{StaticResource InfoColor}"/>
+                                    </StackPanel>
+                                </Border>
+                                <!-- 控制按钮 -->
+                                <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Button Content="&#x25B6; 自动刷新" Style="{StaticResource BtnSuccess}" Margin="4"
+                                            x:Name="Btn_AutoDDM"/>
+                                    <Button Content="&#x23F9; 停止" Style="{StaticResource BtnDanger}" Margin="4"
+                                            x:Name="Btn_StopDDM"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
 
-                    <TextBlock Text="TxPower 上限" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_TxPower_High" IsReadOnly="True" Height="30" Background="#f1f8e9"/>
+                    <!-- 区域3: 光模块告警检测 -->
+                    <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="&#x1F6A8; 光模块告警检测" Style="{StaticResource SectionTitle}"/>
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- TEMP/Bias/TX/RX 告警 -->
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="H_Alarm  L_Alarm  H_Warn  L_Warn" FontSize="10" 
+                                               Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                                    <!-- TEMP -->
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="TEMP" FontSize="11" VerticalAlignment="Center"/>
+                                        <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="2" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="3" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="4" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                    </Grid>
+                                    <!-- VCC -->
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="VCC" FontSize="11" VerticalAlignment="Center"/>
+                                        <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="2" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="3" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="4" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                    </Grid>
+                                    <!-- Bias -->
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Bias" FontSize="11" VerticalAlignment="Center"/>
+                                        <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="2" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="3" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="4" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                    </Grid>
+                                    <!-- TX -->
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="TX" FontSize="11" VerticalAlignment="Center"/>
+                                        <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="2" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="3" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="4" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                    </Grid>
+                                    <!-- RX -->
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="RX" FontSize="11" VerticalAlignment="Center"/>
+                                        <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="2" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="3" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                        <Ellipse Grid.Column="4" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+                                <!-- LOL/LOS 状态 -->
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="LOL    LOS" FontSize="10" 
+                                               Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                                    <ItemsControl ItemsSource="{Binding Alarm.AlarmFlags}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,1">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Ellipse Grid.Column="0" Width="10" Height="10" 
+                                                             Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                                    <Ellipse Grid.Column="1" Width="10" Height="10" 
+                                                             Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Border Background="#FFF8E1" CornerRadius="6" Padding="8" Margin="0,8,0,0">
+                                        <TextBlock Text="{Binding Alarm.CombinedStatus}" FontSize="11" 
+                                                   TextWrapping="Wrap" Foreground="{StaticResource TextPrimary}"/>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
 
-                    <TextBlock Text="TxPower 下限" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_TxPower_Low" IsReadOnly="True" Height="30" Background="#f1f8e9"/>
-                </StackPanel>
+                <!-- ===== 第二行：DEBUG区 + 性能测试区 ===== -->
+                <Grid Grid.Row="1" Margin="0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="420"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-                <!-- 右侧：模块信息 + 告警状态 -->
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="模块信息" FontSize="16" FontWeight="Bold" Margin="0 0 0 10"/>
+                    <!-- 区域4: 光模块DEBUG区 -->
+                    <Border Grid.Column="0" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="&#x1F527; 光模块DEBUG区" Style="{StaticResource SectionTitle}"/>
 
-                    <TextBlock Text="生产厂家" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_Manufacturer" IsReadOnly="True" Height="30" Background="#f8f9fa"/>
+                            <!-- A0/A2 Byte显示 -->
+                            <Grid Grid.Row="1" Margin="0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0" Grid.Column="0" Background="{StaticResource BgLight}" CornerRadius="6" Padding="8" Margin="2">
+                                    <StackPanel>
+                                        <TextBlock Text="A0 Low Byte" FontSize="10" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBlock Text="{Binding A0LowByte}" FontSize="18" FontWeight="Bold" 
+                                                   Foreground="{StaticResource PrimaryColor}" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Row="0" Grid.Column="1" Background="{StaticResource BgLight}" CornerRadius="6" Padding="8" Margin="2">
+                                    <StackPanel>
+                                        <TextBlock Text="A0 High Byte" FontSize="10" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBlock Text="{Binding A0HighByte}" FontSize="18" FontWeight="Bold" 
+                                                   Foreground="{StaticResource PrimaryColor}" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Row="1" Grid.Column="0" Background="{StaticResource BgLight}" CornerRadius="6" Padding="8" Margin="2">
+                                    <StackPanel>
+                                        <TextBlock Text="A2 Low Byte" FontSize="10" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBlock Text="{Binding A2LowByte}" FontSize="18" FontWeight="Bold" 
+                                                   Foreground="{StaticResource WarningColor}" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Row="1" Grid.Column="1" Background="{StaticResource BgLight}" CornerRadius="6" Padding="8" Margin="2">
+                                    <StackPanel>
+                                        <TextBlock Text="A2 High Byte" FontSize="10" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBlock Text="{Binding A2HighByte}" FontSize="18" FontWeight="Bold" 
+                                                   Foreground="{StaticResource WarningColor}" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
 
-                    <TextBlock Text="模块型号" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_Model" IsReadOnly="True" Height="30" Background="#f8f9fa"/>
+                            <!-- 读写操作区 -->
+                            <Grid Grid.Row="2" Margin="0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
 
-                    <TextBlock Text="序列号 SN" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_SN" IsReadOnly="True" Height="30" Background="#f8f9fa"/>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="密码：" VerticalAlignment="Center" Margin="0,2"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DebugPassword}" Margin="2"/>
+                                <Button Grid.Row="0" Grid.Column="2" Content="W" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
+                                <Button Grid.Row="0" Grid.Column="3" Content="R" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
 
-                    <TextBlock Text="生产日期" Margin="0 8 0 0"/>
-                    <TextBox x:Name="Txt_Date" IsReadOnly="True" Height="30" Background="#f8f9fa"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="页：" VerticalAlignment="Center" Margin="0,2"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" SelectedItem="{Binding DebugPage}" Margin="2">
+                                    <ComboBoxItem Content="A0"/>
+                                    <ComboBoxItem Content="A2"/>
+                                </ComboBox>
+                                <Button Grid.Row="1" Grid.Column="2" Content="W" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
+                                <Button Grid.Row="1" Grid.Column="3" Content="R" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
 
-                    <TextBlock Text="告警状态" FontWeight="Bold" Margin="0 15 0 5"/>
-                    <TextBox x:Name="Txt_AlarmStatus" IsReadOnly="True" Height="50" Background="#fff3e0" FontSize="13"/>
-                </StackPanel>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="地址：" VerticalAlignment="Center" Margin="0,2"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DebugAddress}" Margin="2"/>
+                                <Button Grid.Row="2" Grid.Column="2" Content="W" Style="{StaticResource BtnSmall}" Width="36" Margin="2"
+                                        Command="{Binding WriteDebugValueCommand}"/>
+                                <Button Grid.Row="2" Grid.Column="3" Content="R" Style="{StaticResource BtnSmall}" Width="36" Margin="2"
+                                        Command="{Binding ReadDebugValueCommand}"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="数值：" VerticalAlignment="Center" Margin="0,2"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding DebugValue, StringFormat='{}{0:X2}'}" Margin="2"/>
+                                <Button Grid.Row="3" Grid.Column="2" Content="W" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
+                                <Button Grid.Row="3" Grid.Column="3" Content="R" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
+                            </Grid>
+
+                            <!-- TX1-TX8 通道选择 -->
+                            <UniformGrid Grid.Row="3" Columns="4" Margin="0,4">
+                                <ToggleButton Content="TX1" Margin="2" IsChecked="True"/>
+                                <ToggleButton Content="TX2" Margin="2"/>
+                                <ToggleButton Content="TX3" Margin="2"/>
+                                <ToggleButton Content="TX4" Margin="2"/>
+                                <ToggleButton Content="TX5" Margin="2"/>
+                                <ToggleButton Content="TX6" Margin="2"/>
+                                <ToggleButton Content="TX7" Margin="2"/>
+                                <ToggleButton Content="TX8" Margin="2"/>
+                            </UniformGrid>
+
+                            <!-- FEC/功耗控制 -->
+                            <Grid Grid.Row="4" Margin="0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <ToggleButton Grid.Row="0" Grid.Column="0" Content="HOST FEC" Margin="2" 
+                                              IsChecked="{Binding HostFecEnabled}"/>
+                                <ToggleButton Grid.Row="0" Grid.Column="1" Content="MEDIA FEC" Margin="2"
+                                              IsChecked="{Binding MediaFecEnabled}"/>
+                                <ToggleButton Grid.Row="0" Grid.Column="2" Content="MEDIA PRBS" Margin="2"
+                                              IsChecked="{Binding MediaPrbsEnabled}"/>
+                                <Button Grid.Row="0" Grid.Column="3" Content="复位" Style="{StaticResource BtnSmall}" Margin="2"
+                                        Command="{Binding ResetModuleCommand}"/>
+                                <Button Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" 
+                                        Content="{Binding IsHighPowerMode, Converter={StaticResource PowerModeConverter}}" 
+                                        Style="{StaticResource BtnPrimary}" Margin="2"
+                                        Command="{Binding TogglePowerModeCommand}"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- 区域5: 光模块性能测试区 -->
+                    <Border Grid.Column="1" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="&#x1F4C8; 光模块性能测试区" Style="{StaticResource SectionTitle}"/>
+
+                            <!-- TX 测试项 -->
+                            <Border Grid.Row="1" Background="#FFF3E0" CornerRadius="8" Padding="10" Margin="0,4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="{StaticResource WarningColor}" CornerRadius="4" 
+                                            Width="24" Height="60" VerticalAlignment="Center">
+                                        <TextBlock Text="TX" Foreground="White" FontWeight="Bold" 
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock.LayoutTransform>
+                                                <RotateTransform Angle="-90"/>
+                                            </TextBlock.LayoutTransform>
+                                        </TextBlock>
+                                    </Border>
+                                    <UniformGrid Grid.Column="1" Columns="5" Margin="8,0">
+                                        <Button Content="单通道光功率" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="眼图余量" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="TDECQ" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="消光比" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="中心波长" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="光谱宽度" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="边模抑制比" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="发射光功率精度" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="" Style="{StaticResource BtnSmall}" Margin="2" IsEnabled="False"/>
+                                        <Button Content="" Style="{StaticResource BtnSmall}" Margin="2" IsEnabled="False"/>
+                                    </UniformGrid>
+                                </Grid>
+                            </Border>
+
+                            <!-- RX 测试项 -->
+                            <Border Grid.Row="2" Background="#E3F2FD" CornerRadius="8" Padding="10" Margin="0,4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="{StaticResource PrimaryColor}" CornerRadius="4" 
+                                            Width="24" Height="60" VerticalAlignment="Center">
+                                        <TextBlock Text="RX" Foreground="White" FontWeight="Bold" 
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock.LayoutTransform>
+                                                <RotateTransform Angle="-90"/>
+                                            </TextBlock.LayoutTransform>
+                                        </TextBlock>
+                                    </Border>
+                                    <UniformGrid Grid.Column="1" Columns="4" Margin="8,0">
+                                        <Button Content="单通道灵敏度" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="误码率与光功率趋势" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="单通道LOSA" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="单通道LOSD" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="LOS滞回" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="接收光功率精度" Style="{StaticResource BtnSmall}" Margin="2"/>
+                                        <Button Content="" Style="{StaticResource BtnSmall}" Margin="2" IsEnabled="False"/>
+                                        <Button Content="" Style="{StaticResource BtnSmall}" Margin="2" IsEnabled="False"/>
+                                    </UniformGrid>
+                                </Grid>
+                            </Border>
+
+                            <!-- 高低功耗测试 -->
+                            <Button Grid.Row="3" Content="&#x26A1; 高/低功耗测试" Style="{StaticResource BtnWarning}" 
+                                    HorizontalAlignment="Left" Margin="0,4"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- ===== 第三行：温度设定 + 测试控制 ===== -->
+                <Grid Grid.Row="2" Margin="0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 区域6: 光模块温度设定区 -->
+                    <Border Grid.Column="0" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="&#x1F321; 光模块温度设定区" Style="{StaticResource SectionTitle}"/>
+
+                            <!-- 温度等级选择 -->
+                            <Grid Grid.Row="1" Margin="0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Content="工业级" Style="{StaticResource BtnSmall}" Margin="2"
+                                        Command="{Binding SelectIndustrialGradeCommand}"/>
+                                <Button Grid.Column="1" Content="商业级" Style="{StaticResource BtnSmall}" Margin="2"
+                                        Command="{Binding SelectCommercialGradeCommand}"/>
+                                <Button Grid.Column="2" Content="扩展级" Style="{StaticResource BtnSmall}" Margin="2"
+                                        Command="{Binding SelectExtendedGradeCommand}"/>
+                                <Button Grid.Column="3" Content="自定义温度" Style="{StaticResource BtnSmall}" Margin="2"
+                                        Command="{Binding SelectCustomTempCommand}"/>
+                                <Button Grid.Column="4" Content="高温" Style="{StaticResource BtnSmall}" Margin="2"
+                                        Command="{Binding SetHighTempCommand}"/>
+                                <Button Grid.Column="5" Content="低温" Style="{StaticResource BtnSmall}" Margin="2"
+                                        Command="{Binding SetLowTempCommand}"/>
+                                <Button Grid.Column="6" Content="常温" Style="{StaticResource BtnSmall}" Margin="2"
+                                        Command="{Binding SetRoomTempCommand}"/>
+                            </Grid>
+
+                            <!-- 温度设定值显示 -->
+                            <Grid Grid.Row="2" Margin="0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="#FFEBEE" CornerRadius="8" Padding="10" Margin="4">
+                                    <StackPanel>
+                                        <TextBlock Text="&#x1F525; 高温设定" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBox Text="{Binding TempHighSetting, StringFormat='{}{0} &#x2103;'}" 
+                                                 FontSize="16" FontWeight="Bold" Foreground="{StaticResource DangerColor}"
+                                                 HorizontalContentAlignment="Center" BorderThickness="0" Background="Transparent"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="1" Background="#E8F5E9" CornerRadius="8" Padding="10" Margin="4">
+                                    <StackPanel>
+                                        <TextBlock Text="&#x2744; 低温设定" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBox Text="{Binding TempLowSetting, StringFormat='{}{0} &#x2103;'}" 
+                                                 FontSize="16" FontWeight="Bold" Foreground="{StaticResource InfoColor}"
+                                                 HorizontalContentAlignment="Center" BorderThickness="0" Background="Transparent"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="2" Background="#FFF8E1" CornerRadius="8" Padding="10" Margin="4">
+                                    <StackPanel>
+                                        <TextBlock Text="&#x1F324; 常温设定" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBox Text="{Binding TempRoomSetting, StringFormat='{}{0} &#x2103;'}" 
+                                                 FontSize="16" FontWeight="Bold" Foreground="{StaticResource SuccessColor}"
+                                                 HorizontalContentAlignment="Center" BorderThickness="0" Background="Transparent"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- 测试控制按钮 -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
+                        <Button Content="&#x25B6; 开始测试" Style="{StaticResource BtnSuccess}" 
+                                Width="120" Height="50" Margin="0,4"
+                                Command="{Binding RunFullTemperatureTestCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
+                        <Button Content="&#x23F9; 停止测试" Style="{StaticResource BtnDanger}" 
+                                Width="120" Height="50" Margin="0,4"
+                                Command="{Binding StopTestCommand}"/>
+                    </StackPanel>
+                </Grid>
             </Grid>
-        </GroupBox>
+        </ScrollViewer>
 
-        <!-- 状态栏 -->
-        <TextBlock x:Name="Txt_Status" Grid.Row="4" Margin="5 0" VerticalAlignment="Center"/>
+        <!-- ========== 底部日志区 ========== -->
+        <Border Grid.Row="2" Background="#1C1C1E" Padding="8" MaxHeight="150">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="&#x1F4CB; 系统日志" Foreground="#8E8E93" FontSize="11" Margin="0,0,0,4"/>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" x:Name="LogScrollViewer">
+                    <TextBox Text="{Binding Log}" IsReadOnly="True" 
+                             Background="Transparent" Foreground="#4CD964" 
+                             FontFamily="Consolas" FontSize="11"
+                             TextWrapping="Wrap" BorderThickness="0"
+                             VerticalScrollBarVisibility="Disabled"/>
+                </ScrollViewer>
+            </Grid>
+        </Border>
     </Grid>
 </Window>
