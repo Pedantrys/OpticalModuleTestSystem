@@ -134,11 +134,6 @@ namespace OpticalModuleTestSystem.Drivers
             // 校准计算
             data.Temperature = (tempSlope * tempAdVal + tempOffset / 256.0);
 
-            //data.Temperature = tempAdVal < 128 ? tempAdVal : tempAdVal - 256;
-            //// 校准计算（对齐原VB逻辑）
-            //data.Temperature = tempSlope * tempAd + tempOffset; // 注：原VB此处逻辑与ddm_int一致，保留校准公式
-            //data.Temperature /= 256.0;
-
             // ---------- 电压校准：字节88-89斜率，90-91偏移 ----------
             double voltSlope = readData[88] + readData[89] / 256.0;
             short voltOffset = ToInt16BigEndian(readData[90], readData[91]);
@@ -160,18 +155,19 @@ namespace OpticalModuleTestSystem.Drivers
 
             // ---------- 接收功率4次多项式校准：字节56-71等5组系数 ----------
             // 系数存储顺序：从字节56开始，每4字节一个float（IEEE 754）
-            double[] rxCoeff = new double[5]; // 索引4=4次项，0=常数项
+            double[] rxCoeff = new double[5]; // 对齐VB：rS[4]=x⁴, rS[0]=常数
             for (int i = 0; i < 5; i++)
             {
-                int startAddr = 56 + i * 4;  // 修正：从56开始，不是72
+                int startAddr = 56 + i * 4;   // 修正：从56开始，不是72
                 byte[] floatBytes = new byte[4];
                 // 大端字节序转小端
                 floatBytes[3] = readData[startAddr];
                 floatBytes[2] = readData[startAddr + 1];
                 floatBytes[1] = readData[startAddr + 2];
-                floatBytes[0] = readData[startAddr + 3];
-                rxCoeff[i] = BitConverter.ToSingle(floatBytes, 0);
+                floatBytes[0] = readData[startAddr + 3]; 
+                rxCoeff[4 - i] = BitConverter.ToSingle(floatBytes, 0);
             }
+
             ushort rxAd = ToUInt16BigEndian(readData[104], readData[105]);
             double rxCalibrated = rxCoeff[4] * Math.Pow(rxAd, 4)
                                 + rxCoeff[3] * Math.Pow(rxAd, 3)
@@ -263,7 +259,7 @@ namespace OpticalModuleTestSystem.Drivers
                     floatBytes[2] = readData[startAddr + 1];
                     floatBytes[1] = readData[startAddr + 2];
                     floatBytes[0] = readData[startAddr + 3];
-                    rxCoeff[i] = BitConverter.ToSingle(floatBytes, 0);
+                    rxCoeff[4 - i] = BitConverter.ToSingle(floatBytes, 0);
                 }
             }
 

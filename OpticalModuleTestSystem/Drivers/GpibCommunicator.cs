@@ -27,6 +27,7 @@ namespace OpticalModuleTestSystem.Drivers
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"GPIB连接失败 [{gpibAddress}]: {ex.Message}");
+                // 连接失败时不要抛出，返回 false 并记录日志由调用方处理
                 return false;
             }
         }
@@ -70,22 +71,26 @@ namespace OpticalModuleTestSystem.Drivers
             }
         }
 
-        #region ====================== 温控平台 AST-545 ======================
+        #region ====================== 温控平台 ATS-545 ======================
 
         /// <summary>
-        /// 温控平台（Temptronic AST-545）设置目标温度
+        /// 温控平台（Temptronic ATS-545）设置目标温度
         /// </summary>
         /// <param name="targetTemp">目标温度（℃）</param>
         /// <returns>是否设置成功</returns>
-        public bool SetTemperature(int targetTemp)
+        public bool SetTemperature(double targetTemp)
         {
             if (_session == null) return false;
             try
             {
-                // AST-545 温控平台标准SCPI指令：设置目标温度
-                Write($"TEMP {targetTemp}");
-                // 启动温控
-                Write("TEMP:RUN");  
+                // ATS-545 温控平台标准SCPI指令：设置目标温度
+                // 根据目标温度选择通道：负温度使用 SETN 2，否则使用 SETN 0（或其他）
+                string setn = targetTemp < 0 ? "SETN 2" : "SETN 0";
+                Write(setn);
+                // 2. 设置目标温度 SETP + 温度值，使用一位小数以减少量化误差
+                Write($"SETP {targetTemp:F1}");
+                // 3. 开启气流/启动控温 FLOW 1
+                Write("FLOW 1");
                 return true;
             }
             catch
@@ -108,7 +113,7 @@ namespace OpticalModuleTestSystem.Drivers
         /// </summary>
         public void StopTemperatureControl()
         {
-            Write("TEMP:STOP");
+            Write("FLOW 0");
         }
 
         /// <summary>
@@ -162,9 +167,9 @@ namespace OpticalModuleTestSystem.Drivers
 
         #endregion
 
-        #region ====================== EXFO IQS-3150 光衰减/功率计 ======================
+        #region ====================== EXFO IQS-610P 光衰减/功率计 ======================
         /// <summary>
-        /// EXFO IQS-3150 设置光衰减值
+        /// EXFO IQS-610P 设置光衰减值
         /// </summary>
         /// <param name="attenuationDb">衰减值 (dB)，支持0.1dB步进</param>
         /// <returns>是否设置成功</returns>
@@ -173,7 +178,7 @@ namespace OpticalModuleTestSystem.Drivers
             if (_session == null) return false;
             try
             {
-                // IQS-3150 标准SCPI指令：设置衰减值
+                // IQS-610P 标准SCPI指令：设置衰减值
                 Write($"ATT {attenuationDb} DB");
                 return true;
             }
@@ -184,7 +189,7 @@ namespace OpticalModuleTestSystem.Drivers
         }
 
         /// <summary>
-        /// EXFO IQS-3150 读取当前光功率值
+        /// EXFO IQS-610P 读取当前光功率值
         /// </summary>
         /// <returns>光功率值 (dBm)，读取失败返回 NaN</returns>
         public double ReadEXFOPower()
@@ -192,7 +197,7 @@ namespace OpticalModuleTestSystem.Drivers
             if (_session == null) return double.NaN;
             try
             {
-                // IQS-3150 标准SCPI指令：读取光功率
+                // IQS-610P 标准SCPI指令：读取光功率
                 string powerStr = Query(":POW?");
                 return double.TryParse(powerStr, out double power) ? power : double.NaN;
             }

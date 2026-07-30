@@ -33,7 +33,7 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
+                            <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}" 
                                 CornerRadius="6"
                                 Padding="{TemplateBinding Padding}">
@@ -139,6 +139,40 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
+        <!-- ToggleChip 风格（用于替代 CheckBox 的切换按钮） -->
+        <Style x:Key="ToggleChip" TargetType="ToggleButton">
+            <Setter Property="Background" Value="{StaticResource BgCard}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgLight}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource PrimaryColor}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource PrimaryColor}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="DataValue" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -159,6 +193,8 @@
         <vm:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <vm:InverseBoolConverter x:Key="InverseBoolConverter"/>
         <vm:PowerModeConverter x:Key="PowerModeConverter"/>
+        <vm:BoolToAlarmBrushConverter x:Key="BoolToAlarmBrushConverter"/>
+        <vm:AlarmAggregateMultiConverter x:Key="AlarmAggregateMultiConverter"/>
     </Window.Resources>
 
     <Grid>
@@ -255,7 +291,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Ellipse Grid.Column="0" Style="{StaticResource StatusIndicator}" 
                                              Fill="{Binding IsAttenuatorConnected, Converter={StaticResource BoolToConnectionBrushConverter}}"/>
-                                    <TextBlock Grid.Column="1" Text="光衰减器 (IQS-3150)" Style="{StaticResource DataLabel}"/>
+                                    <TextBlock Grid.Column="1" Text="光衰减器 (IQS-610P)" Style="{StaticResource DataLabel}"/>
                                 </Grid>
                                 <Grid Margin="0,2">
                                     <Grid.ColumnDefinitions>
@@ -282,7 +318,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Ellipse Grid.Column="0" Style="{StaticResource StatusIndicator}" 
                                              Fill="{Binding IsTempControllerConnected, Converter={StaticResource BoolToConnectionBrushConverter}}"/>
-                                    <TextBlock Grid.Column="1" Text="三温一体机 (AST-545)" Style="{StaticResource DataLabel}"/>
+                                    <TextBlock Grid.Column="1" Text="三温一体机 (ATS-545)" Style="{StaticResource DataLabel}"/>
                                 </Grid>
                                 <Grid Margin="0,2">
                                     <Grid.ColumnDefinitions>
@@ -321,52 +357,21 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Col 0: 封装（1列） -->
-                                <ComboBox Grid.Column="0" SelectedItem="{Binding SelectedPackage}" Margin="2">
-                                    <ComboBoxItem Content="SFP+"/>
-                                    <ComboBoxItem Content="QSFP28"/>
-                                    <ComboBoxItem Content="QSFP-DD"/>
-                                    <ComboBoxItem Content="SFP28"/>
-                                </ComboBox>
+                                <!-- Col 0: 封装（ItemsSource 绑定） -->
+                                <ComboBox Grid.Column="0" ItemsSource="{Binding PackageOptions}" SelectedItem="{Binding SelectedPackage}" Margin="2"
+                                          IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
 
-                                <!-- Col 1: 通讯协议（2列中的第1列） -->
-                                <!-- 光口协议：SFF-8472 / SFF-8636 / CMIS -->
-                                <ComboBox Grid.Column="1" SelectedItem="{Binding SelectedOpticalProtocol}" Margin="2" 
-                                          Visibility="{Binding IsElectricPort, Converter={StaticResource InverseBoolConverter}}">
-                                    <ComboBoxItem Content="SFF-8472"/>
-                                    <ComboBoxItem Content="SFF-8636"/>
-                                    <ComboBoxItem Content="CMIS"/>
-                                </ComboBox>
-                                <!-- 电口协议（请根据实际设备替换为真实协议名称） -->
-                                <ComboBox Grid.Column="1" SelectedItem="{Binding SelectedElectricProtocol}" Margin="2"
-                                          Visibility="{Binding IsElectricPort, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <ComboBoxItem Content="1000BASE-T"/>
-                                    <ComboBoxItem Content="10GBASE-T"/>
-                                    <ComboBoxItem Content="25GBASE-CR"/>
-                                </ComboBox>
+                                <!-- Col 1: 协议（根据电/光口动态切换 ItemsSource） -->
+                                <ComboBox Grid.Column="1" ItemsSource="{Binding CurrentProtocolOptions}" SelectedItem="{Binding SelectedProtocol}" Margin="2"
+                                          IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
 
-                                <!-- Col 2: 速率（2列中的第2列） -->
-                                <!-- 光口速率 -->
-                                <ComboBox Grid.Column="2" SelectedItem="{Binding SelectedOpticalRate}" Margin="2"
-                                          Visibility="{Binding IsElectricPort, Converter={StaticResource InverseBoolConverter}}">
-                                    <ComboBoxItem Content="10G"/>
-                                    <ComboBoxItem Content="25G"/>
-                                    <ComboBoxItem Content="100G"/>
-                                    <ComboBoxItem Content="400G"/>
-                                </ComboBox>
-                                <!-- 电口速率 -->
-                                <ComboBox Grid.Column="2" SelectedItem="{Binding SelectedElectricRate}" Margin="2"
-                                          Visibility="{Binding IsElectricPort, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <ComboBoxItem Content="1G"/>
-                                    <ComboBoxItem Content="10G"/>
-                                    <ComboBoxItem Content="25G"/>
-                                </ComboBox>
+                                <!-- Col 2: 速率（根据电/光口动态切换 ItemsSource） -->
+                                <ComboBox Grid.Column="2" ItemsSource="{Binding CurrentRateOptions}" SelectedItem="{Binding SelectedRate}" Margin="2"
+                                          IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
 
-                                <!-- Col 3: 调制方式（1列） -->
-                                <ComboBox Grid.Column="3" SelectedItem="{Binding SelectedModulation}" Margin="2">
-                                    <ComboBoxItem Content="NRZ"/>
-                                    <ComboBoxItem Content="PAM4"/>
-                                </ComboBox>
+                                <!-- Col 3: 调制方式（ItemsSource 绑定） -->
+                                <ComboBox Grid.Column="3" ItemsSource="{Binding ModulationOptions}" SelectedItem="{Binding SelectedModulation}" Margin="2"
+                                          IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
 
                                 <!-- Col 4: 初始化按钮（1列） -->
                                 <Button Grid.Column="4" Content="&#x2699; 初始化" Style="{StaticResource BtnPrimary}" 
@@ -496,10 +501,50 @@
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="TEMP" FontSize="11" VerticalAlignment="Center"/>
-                                        <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="2" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="3" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="4" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Alarm">
+                                    <Binding Path="Alarm.AlarmFlags[0]"/>
+                                    <Binding Path="IsTempAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.TempHighAlarm, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="64" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.TempHighAlarm, StringFormat='{}{0:F2} ℃'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Alarm">
+                                    <Binding Path="Alarm.AlarmFlags[1]"/>
+                                    <Binding Path="IsTempAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.TempHighWarning, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="64" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.TempHighWarning, StringFormat='{}{0:F2} ℃'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Warn">
+                                    <Binding Path="Alarm.AlarmFlags[2]"/>
+                                    <Binding Path="IsTempAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.TempLowWarning, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="64" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.TempLowWarning, StringFormat='{}{0:F2} ℃'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Warn">
+                                    <Binding Path="Alarm.AlarmFlags[3]"/>
+                                    <Binding Path="IsTempAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.TempLowAlarm, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="64" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.TempLowAlarm, StringFormat='{}{0:F2} ℃'}"/>
+                    </StackPanel>
                                     </Grid>
                                     <!-- VCC -->
                                     <Grid Margin="0,2">
@@ -511,10 +556,50 @@
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="VCC" FontSize="11" VerticalAlignment="Center"/>
-                                        <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="2" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="3" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="4" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Alarm">
+                                    <Binding Path="Alarm.AlarmFlags[4]"/>
+                                    <Binding Path="IsVoltAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.VccHighAlarm, StringFormat='{}{0:F4}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.VccHighAlarm, StringFormat='{}{0:F4} V'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Alarm">
+                                    <Binding Path="Alarm.AlarmFlags[5]"/>
+                                    <Binding Path="IsVoltAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.VccHighWarning, StringFormat='{}{0:F4}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.VccHighWarning, StringFormat='{}{0:F4} V'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Warn">
+                                    <Binding Path="Alarm.AlarmFlags[6]"/>
+                                    <Binding Path="IsVoltAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.VccLowWarning, StringFormat='{}{0:F4}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.VccLowWarning, StringFormat='{}{0:F4} V'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Warn">
+                                    <Binding Path="Alarm.AlarmFlags[7]"/>
+                                    <Binding Path="IsVoltAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.VccLowAlarm, StringFormat='{}{0:F4}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.VccLowAlarm, StringFormat='{}{0:F4} V'}"/>
+                    </StackPanel>
                                     </Grid>
                                     <!-- Bias -->
                                     <Grid Margin="0,2">
@@ -526,10 +611,50 @@
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="Bias" FontSize="11" VerticalAlignment="Center"/>
-                                        <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="2" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="3" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="4" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Alarm">
+                                    <Binding Path="Alarm.AlarmFlags[8]"/>
+                                    <Binding Path="IsBiasAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.BiasHighAlarm, StringFormat='{}{0:F3}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.BiasHighAlarm, StringFormat='{}{0:F3} mA'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Alarm">
+                                    <Binding Path="Alarm.AlarmFlags[9]"/>
+                                    <Binding Path="IsBiasAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.BiasHighWarning, StringFormat='{}{0:F3}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.BiasHighWarning, StringFormat='{}{0:F3} mA'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Warn">
+                                    <Binding Path="Alarm.AlarmFlags[10]"/>
+                                    <Binding Path="IsBiasAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.BiasLowWarning, StringFormat='{}{0:F3}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.BiasLowWarning, StringFormat='{}{0:F3} mA'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Warn">
+                                    <Binding Path="Alarm.AlarmFlags[11]"/>
+                                    <Binding Path="IsBiasAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.BiasLowAlarm, StringFormat='{}{0:F3}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.BiasLowAlarm, StringFormat='{}{0:F3} mA'}"/>
+                    </StackPanel>
                                     </Grid>
                                     <!-- TX -->
                                     <Grid Margin="0,2">
@@ -541,10 +666,50 @@
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="TX" FontSize="11" VerticalAlignment="Center"/>
-                                        <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="2" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="3" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="4" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Alarm">
+                                    <Binding Path="Alarm.AlarmFlags[12]"/>
+                                    <Binding Path="IsTxPowerAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.TxPowerHighAlarm, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.TxPowerHighAlarm, StringFormat='{}{0:F2} dBm'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Alarm">
+                                    <Binding Path="Alarm.AlarmFlags[13]"/>
+                                    <Binding Path="IsTxPowerAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.TxPowerHighWarning, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.TxPowerHighWarning, StringFormat='{}{0:F2} dBm'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Warn">
+                                    <Binding Path="Alarm.AlarmFlags[14]"/>
+                                    <Binding Path="IsTxPowerAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.TxPowerLowWarning, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.TxPowerLowWarning, StringFormat='{}{0:F2} dBm'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Warn">
+                                    <Binding Path="Alarm.AlarmFlags[15]"/>
+                                    <Binding Path="IsTxPowerAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.TxPowerLowAlarm, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.TxPowerLowAlarm, StringFormat='{}{0:F2} dBm'}"/>
+                    </StackPanel>
                                     </Grid>
                                     <!-- RX -->
                                     <Grid Margin="0,2">
@@ -556,10 +721,50 @@
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="RX" FontSize="11" VerticalAlignment="Center"/>
-                                        <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="2" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="3" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
-                                        <Ellipse Grid.Column="4" Width="10" Height="10" Fill="{StaticResource SuccessColor}" HorizontalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Alarm">
+                                    <Binding Path="Alarm.AlarmFlags[16]"/>
+                                    <Binding Path="IsRxPowerAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.RxPowerHighAlarm, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.RxPowerHighAlarm, StringFormat='{}{0:F2} dBm'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Alarm">
+                                    <Binding Path="Alarm.AlarmFlags[17]"/>
+                                    <Binding Path="IsRxPowerAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.RxPowerHighWarning, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.RxPowerHighWarning, StringFormat='{}{0:F2} dBm'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Warn">
+                                    <Binding Path="Alarm.AlarmFlags[18]"/>
+                                    <Binding Path="IsRxPowerAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.RxPowerLowWarning, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.RxPowerLowWarning, StringFormat='{}{0:F2} dBm'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Ellipse Width="10" Height="10">
+                            <Ellipse.Fill>
+                                <MultiBinding Converter="{StaticResource AlarmAggregateMultiConverter}" ConverterParameter="Warn">
+                                    <Binding Path="Alarm.AlarmFlags[19]"/>
+                                    <Binding Path="IsRxPowerAlarm"/>
+                                </MultiBinding>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock Text="{Binding Thresholds.RxPowerLowAlarm, StringFormat='{}{0:F2}'}" FontSize="10" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="72" TextTrimming="CharacterEllipsis" ToolTip="{Binding Thresholds.RxPowerLowAlarm, StringFormat='{}{0:F2} dBm'}"/>
+                    </StackPanel>
                                     </Grid>
                                 </StackPanel>
                                 <!-- LOL/LOS 状态 -->
@@ -668,16 +873,20 @@
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="密码：" VerticalAlignment="Center" Margin="0,2"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DebugPassword}" Margin="2"/>
-                                <Button Grid.Row="0" Grid.Column="2" Content="W" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
-                                <Button Grid.Row="0" Grid.Column="3" Content="R" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
+                                        <Button Grid.Row="0" Grid.Column="2" Content="W" Style="{StaticResource BtnSmall}" Width="36" Margin="2"
+                                                Command="{Binding WriteA0LowByteCommand}"/>
+                                        <Button Grid.Row="0" Grid.Column="3" Content="R" Style="{StaticResource BtnSmall}" Width="36" Margin="2"
+                                                Command="{Binding ReadA0LowByteCommand}"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="页：" VerticalAlignment="Center" Margin="0,2"/>
                                 <ComboBox Grid.Row="1" Grid.Column="1" SelectedItem="{Binding DebugPage}" Margin="2">
                                     <ComboBoxItem Content="A0"/>
                                     <ComboBoxItem Content="A2"/>
                                 </ComboBox>
-                                <Button Grid.Row="1" Grid.Column="2" Content="W" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
-                                <Button Grid.Row="1" Grid.Column="3" Content="R" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
+                                <Button Grid.Row="1" Grid.Column="2" Content="W" Style="{StaticResource BtnSmall}" Width="36" Margin="2"
+                                        Command="{Binding WriteA2LowByteCommand}"/>
+                                <Button Grid.Row="1" Grid.Column="3" Content="R" Style="{StaticResource BtnSmall}" Width="36" Margin="2"
+                                        Command="{Binding ReadA2LowByteCommand}"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="地址：" VerticalAlignment="Center" Margin="0,2"/>
                                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DebugAddress}" Margin="2"/>
@@ -687,7 +896,7 @@
                                         Command="{Binding ReadDebugValueCommand}"/>
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="数值：" VerticalAlignment="Center" Margin="0,2"/>
-                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding DebugValue, StringFormat='{}{0:X2}'}" Margin="2"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding DebugValueString, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
                                 <Button Grid.Row="3" Grid.Column="2" Content="W" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
                                 <Button Grid.Row="3" Grid.Column="3" Content="R" Style="{StaticResource BtnSmall}" Width="36" Margin="2"/>
                             </Grid>
@@ -760,16 +969,16 @@
                                         </TextBlock>
                                     </Border>
                                     <UniformGrid Grid.Column="1" Columns="5" Margin="8,0">
-                                        <Button Content="单通道光功率" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="眼图余量" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="TDECQ" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="消光比" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="中心波长" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="光谱宽度" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="边模抑制比" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="发射光功率精度" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="" Style="{StaticResource BtnSmall}" Margin="2" IsEnabled="False"/>
-                                        <Button Content="" Style="{StaticResource BtnSmall}" Margin="2" IsEnabled="False"/>
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="单通道光功率" IsChecked="{Binding TxSingleChannelPower}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="眼图余量" IsChecked="{Binding TxEyeMargin}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="TDECQ" IsChecked="{Binding TxTdecq}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="消光比" IsChecked="{Binding TxExtinctionRatio}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="中心波长" IsChecked="{Binding TxCenterWavelength}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="光谱宽度" IsChecked="{Binding TxSpectralWidth}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="边模抑制比" IsChecked="{Binding TxSmsr}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="发射光功率精度" IsChecked="{Binding TxPowerAccuracy}" />
+                                        <TextBlock />
+                                        <TextBlock />
                                     </UniformGrid>
                                 </Grid>
                             </Border>
@@ -791,21 +1000,23 @@
                                         </TextBlock>
                                     </Border>
                                     <UniformGrid Grid.Column="1" Columns="4" Margin="8,0">
-                                        <Button Content="单通道灵敏度" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="误码率与光功率趋势" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="单通道LOSA" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="单通道LOSD" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="LOS滞回" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="接收光功率精度" Style="{StaticResource BtnSmall}" Margin="2"/>
-                                        <Button Content="" Style="{StaticResource BtnSmall}" Margin="2" IsEnabled="False"/>
-                                        <Button Content="" Style="{StaticResource BtnSmall}" Margin="2" IsEnabled="False"/>
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="单通道灵敏度" IsChecked="{Binding RxSingleChannelSensitivity}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="误码率与光功率趋势" IsChecked="{Binding RxBerPowerTrend}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="单通道LOSA" IsChecked="{Binding RxLosa}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="单通道LOSD" IsChecked="{Binding RxLosd}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="LOS滞回" IsChecked="{Binding RxLosHysteresis}" />
+                                        <ToggleButton Style="{StaticResource ToggleChip}" Content="接收光功率精度" IsChecked="{Binding RxPowerAccuracy}" />
+                                        <TextBlock />
+                                        <TextBlock />
                                     </UniformGrid>
                                 </Grid>
                             </Border>
-
-                            <!-- 高低功耗测试 -->
-                            <Button Grid.Row="3" Content="&#x26A1; 高/低功耗测试" Style="{StaticResource BtnWarning}" 
-                                    HorizontalAlignment="Left" Margin="0,4"/>
+                            <!-- 全选控件与高低功耗测试 -->
+                            <StackPanel Grid.Row="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4">
+                                <CheckBox Content="全部选择" IsChecked="{Binding SelectAllTests}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <Button Content="&#x26A1; 高/低功耗测试" Style="{StaticResource BtnWarning}" 
+                                        HorizontalAlignment="Left" Margin="0,0,12,0"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </Grid>
@@ -866,7 +1077,9 @@
                                         <TextBlock Text="&#x1F525; 高温设定" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
                                         <TextBox Text="{Binding TempHighSetting, StringFormat='{}{0} &#x2103;'}" 
                                                  FontSize="16" FontWeight="Bold" Foreground="{StaticResource DangerColor}"
-                                                 HorizontalContentAlignment="Center" BorderThickness="0" Background="Transparent"/>
+                                                 HorizontalContentAlignment="Center" BorderThickness="0" Background="Transparent"
+                                                 IsReadOnly="{Binding IsTempCustom, Converter={StaticResource InverseBoolConverter}}"
+                                                 ToolTip="{Binding IsTempCustom, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter='编辑以启用'}"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Grid.Column="1" Background="#E8F5E9" CornerRadius="8" Padding="10" Margin="4">
@@ -874,7 +1087,9 @@
                                         <TextBlock Text="&#x2744; 低温设定" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
                                         <TextBox Text="{Binding TempLowSetting, StringFormat='{}{0} &#x2103;'}" 
                                                  FontSize="16" FontWeight="Bold" Foreground="{StaticResource InfoColor}"
-                                                 HorizontalContentAlignment="Center" BorderThickness="0" Background="Transparent"/>
+                                                 HorizontalContentAlignment="Center" BorderThickness="0" Background="Transparent"
+                                                 IsReadOnly="{Binding IsTempCustom, Converter={StaticResource InverseBoolConverter}}"
+                                                 ToolTip="{Binding IsTempCustom, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter='编辑以启用'}"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Grid.Column="2" Background="#FFF8E1" CornerRadius="8" Padding="10" Margin="4">
@@ -882,7 +1097,9 @@
                                         <TextBlock Text="&#x1F324; 常温设定" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
                                         <TextBox Text="{Binding TempRoomSetting, StringFormat='{}{0} &#x2103;'}" 
                                                  FontSize="16" FontWeight="Bold" Foreground="{StaticResource SuccessColor}"
-                                                 HorizontalContentAlignment="Center" BorderThickness="0" Background="Transparent"/>
+                                                 HorizontalContentAlignment="Center" BorderThickness="0" Background="Transparent"
+                                                 IsReadOnly="{Binding IsTempCustom, Converter={StaticResource InverseBoolConverter}}"
+                                                 ToolTip="{Binding IsTempCustom, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter='编辑以启用'}"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>

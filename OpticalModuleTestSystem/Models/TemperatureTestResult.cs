@@ -68,7 +68,7 @@ namespace OpticalModuleTestSystem.Models
         /// </summary>
         public DateTime TestTime { get; set; }
 
-        // ---------------- EXFO IQS-3150 衰减测试数据 ----------------
+        // ---------------- EXFO IQS-610P 衰减测试数据 ----------------
         /// <summary>
         /// 0dB衰减时：模块上报RxPower (dBm)
         /// </summary>

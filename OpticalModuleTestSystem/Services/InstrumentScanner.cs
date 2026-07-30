@@ -65,16 +65,16 @@ namespace OpticalModuleTestSystem.Services
 
             string idnUpper = idn.ToUpper();
 
-            if (idnUpper.Contains("TEMPTRONIC") && idnUpper.Contains("AST-545"))
+            if (idnUpper.Contains("TEMPTRONIC") && idnUpper.Contains("ATS-545"))
             {
                 inst.Name = "温控平台";
-                inst.Model = "AST-545";
+                inst.Model = "ATS-545";
                 inst.IsTargetDevice = true;
             }
             else if (idnUpper.Contains("EXFO") && (idnUpper.Contains("IQS-610P") || idnUpper.Contains("IQS600")))
             {
                 inst.Name = "光功率/衰减模块";
-                inst.Model = "IQS-3150";
+                inst.Model = "IQS-610P";
                 inst.IsTargetDevice = true;
             }
             else if (idnUpper.Contains("KEYSIGHT") && idnUpper.Contains("86100"))

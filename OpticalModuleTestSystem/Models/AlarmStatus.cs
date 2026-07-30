@@ -79,5 +79,7 @@ namespace OpticalModuleTestSystem.Models
         {
             get => $"{ModeText}\r\n{AlarmMessage}";
         }
+
+
     }
 }
