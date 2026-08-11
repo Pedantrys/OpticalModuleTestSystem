@@ -255,9 +255,10 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Text="&#x1F4E1; 设备连接自动检测" Style="{StaticResource SectionTitle}"/>
-                            <StackPanel Grid.Row="1" Margin="0,4">
+                            <DockPanel Grid.Row="1" Margin="0,4">
                                 <!-- 仪器状态列表 -->
-                                <Grid Margin="0,2">
+                                <StackPanel DockPanel.Dock="Top">
+                                    <Grid Margin="0,2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
@@ -330,9 +331,39 @@
                                     <TextBlock Grid.Column="1" Text="误码仪 (MP1900A)" Style="{StaticResource DataLabel}"/>
                                 </Grid>
                             </StackPanel>
-                            <Button Grid.Row="2" Content="&#x1F50D; 扫描仪器" Style="{StaticResource BtnPrimary}" 
-                                    Command="{Binding ScanInstrumentsCommand}" Margin="0,8,0,0"
-                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
+                            </DockPanel>
+
+                            <!-- 仪器列表，显示扫描到的设备并允许选择进行自检 -->
+                            <ListView Grid.Row="2" ItemsSource="{Binding Instruments}" SelectedItem="{Binding SelectedInstrument, Mode=TwoWay}" Height="140" Margin="0,8,0,0">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="名称" Width="120" DisplayMemberBinding="{Binding Name}" />
+                                        <GridViewColumn Header="型号" Width="140" DisplayMemberBinding="{Binding Model}" />
+                                        <GridViewColumn Header="GPIB地址" Width="80" DisplayMemberBinding="{Binding GpibAddress}" />
+                                        <GridViewColumn Header="IDN" Width="220" DisplayMemberBinding="{Binding IdnString}" />
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+
+                            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,8,0,0">
+                                <Button Content="&#x1F50D; 扫描仪器" Style="{StaticResource BtnPrimary}" 
+                                        Command="{Binding ScanInstrumentsCommand}" Margin="0,0,8,0"
+                                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
+                                <Button Content="&#x2691; 自检选中" Command="{Binding SelfTestSelectedInstrumentCommand}" Margin="0,0,0,0">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource BtnSmall}">
+                                            <Setter Property="ToolTip" Value="执行选中仪器的自检"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Opacity" Value="0.6"/>
+                                                    <Setter Property="Background" Value="#FFCCCCCC"/>
+                                                    <Setter Property="ToolTip" Value="请先选择仪器并确保系统不忙"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </StackPanel>
                         </Grid>
                     </Border>
 

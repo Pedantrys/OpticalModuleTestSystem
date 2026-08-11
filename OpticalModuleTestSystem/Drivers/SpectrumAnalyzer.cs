@@ -33,15 +33,23 @@ namespace OpticalModuleTestSystem.Drivers
                 >= 10 => "0.1NM",
                 _ => "0.1NM"
             };
+            // 适配常见设备的分辨率带宽命令（部分设备使用 SENS:BAND:RES，部分使用 SENS:BW）
             _gpib.Write($"SENS:BAND:RES {rbw}");
 
-            // 2. 加载指定测试模板 + 开启模板检测
-            _gpib.Write($"CALC:MARK:TEMP:LOAD \"{templateName}\"");
-            _gpib.Write("CALC:MARK:TEMP:STAT ON");
+            // 2. 加载指定测试模板并开启模板检测
+            // 兼容不同设备的模板命令前缀（如 MS9740A 等使用 CALC:TEMP:...）
+            _gpib.Write($"CALC:TEMP:LOAD \"{templateName}\"");
+            _gpib.Write("CALC:TEMP:STAT ON");
 
-            // 3. 基础初始化：中心波长、参考电平
+            // 3. 基础初始化：中心波长、参考电平、扫描带宽（跨度）
             _gpib.Write("SENS:WAV:CENT 1550NM");
+            _gpib.Write("SENS:WAV:SPAN 20NM");
             _gpib.Write("DISP:WIND:TRAC:Y:RLEV -10DBM");
+
+            // 4. 触发与扫描控制：关闭连续扫描，使用立即触发并执行一次扫描，确保测量可重复/同步
+            _gpib.Write("INIT:CONT OFF");
+            _gpib.Write("TRIG:MODE IMM");
+            _gpib.Write("INIT:IMM");
 
         }
     }

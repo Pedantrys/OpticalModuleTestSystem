@@ -1,124 +1,408 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Ivi.Visa;
+using OpticalModuleTestSystem.Resources;
+using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using Ivi.Visa;
+using System.Threading;
 
 namespace OpticalModuleTestSystem.Drivers
 {
     /// <summary>
-    /// GPIB通信器（增强错误处理版）
+    /// GPIB通信器（增强错误处理 + 线程安全版）
     /// </summary>
     public class GpibCommunicator : IDisposable
     {
-        public void Dispose() => Disconnect();
+        // 串行化所有 IO 操作，避免并发写导致命令混淆
+        private readonly object _ioLock = new();
+
         private IMessageBasedSession? _session;
 
+        /// <summary>
+        /// 当前是否已连接
+        /// </summary>
+        public bool IsConnected => _session != null;
+
+        /// <summary>
+        /// 外部日志注入（可选），用于将底层异常传递到 ViewModel 日志
+        /// </summary>
+        public Action<string>? Logger { get; set; }
+
+        /// <summary>
+        /// 最后发送的命令（调试用）
+        /// </summary>
+        public string LastCommand { get; private set; } = string.Empty;
+
+        /// <summary>
+        /// 最后收到的响应（调试用）
+        /// </summary>
+        public string LastResponse { get; private set; } = string.Empty;
+
+        #region ====================== 连接与断开 ======================
+
+        public void Dispose() => Disconnect();
+
+        /// <summary>
+        /// 连接到指定GPIB地址的设备
+        /// </summary>
         public bool Connect(int gpibAddress, int board = 0)
         {
             try
             {
+                Disconnect(); // 先清理旧连接
                 string resource = $"GPIB{board}::{gpibAddress}::INSTR";
                 _session = (IMessageBasedSession)GlobalResourceManager.Open(resource);
                 _session.TimeoutMilliseconds = 5000;
+
+                // 统一使用 FormattedIO，自动处理终止符和编码
+                // NOTE: IMessageBasedFormattedIO 没有 SRMDelay 属性，保留占位以便未来扩展
                 return true;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"GPIB连接失败 [{gpibAddress}]: {ex.Message}");
-                // 连接失败时不要抛出，返回 false 并记录日志由调用方处理
+                Log($"GPIB连接失败 [{gpibAddress}]: {ex.Message}");
+                _session = null;
                 return false;
             }
         }
 
+        /// <summary>
+        /// 断开GPIB连接并释放资源（线程安全）
+        /// </summary>
+        public void Disconnect()
+        {
+            lock (_ioLock)
+            {
+                try
+                {
+                    _session?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Log($"Disconnect异常: {ex.Message}");
+                }
+                finally
+                {
+                    _session = null;
+                }
+            }
+        }
+
+        #endregion
+
+        #region ====================== 基础 IO（统一 FormattedIO）======================
+
+        /// <summary>
+        /// 发送查询命令并返回响应
+        /// </summary>
+        /// <summary>
+        /// 标准 Query：一问一答，适合单行返回（绝大多数 SCPI 命令）
+        /// 发送前自动清空残留缓冲区
+        /// </summary>
         public string Query(string command)
         {
+            LastCommand = command;
             try
             {
-                _session?.RawIO.Write(command + "\n");
-                return _session?.RawIO.ReadString() ?? string.Empty;
+                lock (_ioLock)
+                {
+                    if (_session == null) return string.Empty;
+
+                    // ✅ 关键：发命令前清空输入缓冲区，防止读到上次的残留
+                    try { _session.Clear(); } catch { }
+
+                    _session.FormattedIO.WriteLine(command);
+
+                    string response = _session.FormattedIO.ReadString().TrimEnd('\n', '\r');
+                    LastResponse = response;
+                    return response;
+                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Query失败 [{command}]: {ex.Message}");
+                Log($"Query失败 [{command}]: {ex.Message}");
+                LastResponse = string.Empty;
                 return string.Empty;
             }
         }
 
-        public void Write(string command)
+        /// <summary>
+        /// 多行 Query：循环读取直到超时，适合 :MEASure:RESults? 这类多行返回
+        /// </summary>
+        public string QueryMultiLine(string command, int lineTimeoutMs = 200)
         {
+            LastCommand = command;
             try
             {
-                _session?.FormattedIO.WriteLine(command);
+                lock (_ioLock)
+                {
+                    if (_session == null) return string.Empty;
+
+                    // 清空残留
+                    try { _session.Clear(); } catch { }
+
+                    var oldTimeout = _session.TimeoutMilliseconds;
+                    try
+                    {
+                        _session.FormattedIO.WriteLine(command);
+
+                        // 把单条读取超时设短，用来判断"是否还有下一行"
+                        _session.TimeoutMilliseconds = lineTimeoutMs;
+
+                        var sb = new StringBuilder();
+                        while (true)
+                        {
+                            try
+                            {
+                                string line = _session.FormattedIO.ReadString().TrimEnd('\n', '\r');
+                                if (sb.Length > 0) sb.Append('\n');
+                                sb.Append(line);
+                            }
+                            catch (System.TimeoutException)
+                            {
+                                // 超时说明读完了
+                                break;
+                            }
+                        }
+                        LastResponse = sb.ToString();
+                        return sb.ToString();
+                    }
+                    finally
+                    {
+                        _session.TimeoutMilliseconds = oldTimeout;
+                    }
+                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Write失败 [{command}]: {ex.Message}");
+                Log($"QueryMultiLine失败 [{command}]: {ex.Message}");
+                LastResponse = string.Empty;
+                return string.Empty;
             }
         }
 
-        public void Disconnect()
+        /// <summary>
+        /// 发送命令（无响应）
+        /// </summary>
+        public void Write(string command)
+        {
+            LastCommand = command;
+            try
+            {
+                lock (_ioLock)
+                {
+                    _session?.FormattedIO.WriteLine(command);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Write失败 [{command}]: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 发送原始字节（用于二进制块传输等特殊情况）
+        /// </summary>
+        public void WriteRaw(byte[] data)
         {
             try
             {
-                _session?.Dispose();
+                lock (_ioLock)
+                {
+                    _session?.RawIO.Write(data);
+                }
             }
-            catch { }
-            finally
+            catch (Exception ex)
             {
-                _session = null;
+                Log($"WriteRaw失败: {ex.Message}");
             }
         }
+
+        #endregion
+
+        #region ====================== 通用 SCPI 查询 ======================
+
+        public string Identify()
+        {
+            return Query(ScpiCommands.IDN);
+        }
+
+        public bool ResetDevice()
+        {
+            Write(ScpiCommands.CLS);
+            Write(ScpiCommands.RST);
+            return true;
+        }
+
+        public bool ClearStatus()
+        {
+            Write(ScpiCommands.CLS);
+            return true;
+        }
+
+        /// <summary>
+        /// 读取状态字节（*STB?）
+        /// </summary>
+        public int GetStatusByte()
+        {
+            string s = Query("*STB?");
+            if (int.TryParse(s, out int v)) return v;
+
+            s = Query("STAT:QUES?");
+            if (int.TryParse(s, out v)) return v;
+
+            return -1;
+        }
+
+        /// <summary>
+        /// 查询系统错误队列
+        /// </summary>
+        public string QuerySystemError()
+        {
+            var r = Query("SYST:ERR?");
+            return string.IsNullOrWhiteSpace(r) ? "0,No error" : r.Trim();
+        }
+
+        /// <summary>
+        /// 等待设备操作完成（*OPC?），超时恢复保证在 finally 中执行
+        /// </summary>
+        public bool WaitForOperationComplete(int timeoutMs = 5000)
+        {
+            if (_session == null) return false;
+
+            int prevTimeout = _session.TimeoutMilliseconds;
+            try
+            {
+                lock (_ioLock)
+                {
+                    _session.TimeoutMilliseconds = Math.Max(1000, timeoutMs);
+                    _session.FormattedIO.WriteLine("*OPC?");
+                    string r = _session.FormattedIO.ReadString().Trim();
+                    return r == "1";
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"WaitForOPC失败: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                // 确保超时值一定恢复，避免影响后续命令
+                try { if (_session != null) _session.TimeoutMilliseconds = prevTimeout; }
+                catch { }
+            }
+        }
+
+        #endregion
 
         #region ====================== 温控平台 ATS-545 ======================
 
         /// <summary>
-        /// 温控平台（Temptronic ATS-545）设置目标温度
+        /// 设置目标温度并验证（支持设定温度回读）
         /// </summary>
-        /// <param name="targetTemp">目标温度（℃）</param>
-        /// <returns>是否设置成功</returns>
         public bool SetTemperature(double targetTemp)
         {
             if (_session == null) return false;
+
             try
             {
-                // ATS-545 温控平台标准SCPI指令：设置目标温度
-                // 根据目标温度选择通道：负温度使用 SETN 2，否则使用 SETN 0（或其他）
-                string setn = targetTemp < 0 ? "SETN 2" : "SETN 0";
+                // ATS-545 通道选择（经验规则）
+                string setn = targetTemp switch
+                {
+                    > -70 and <= 10 => "SETN 2",
+                    > 10 and <= 50 => "SETN 1",
+                    > 50 and <= 150 => "SETN 0",
+                    _ => string.Empty
+                };
+
+                if (string.IsNullOrEmpty(setn))
+                {
+                    Log($"目标温度 {targetTemp} 超出 ATS-545 支持范围");
+                    return false;
+                }
+
                 Write(setn);
-                // 2. 设置目标温度 SETP + 温度值，使用一位小数以减少量化误差
-                Write($"SETP {targetTemp:F1}");
-                // 3. 开启气流/启动控温 FLOW 1
+
+                // 尝试多种设置指令
+                string[] setTempCmds = new[]
+                {
+                    $"SETP {targetTemp:F1}",
+                    $":SOUR:TEMP {targetTemp:F1}",
+                    $"TEMP {targetTemp:F1}",
+                    $"SETT {targetTemp:F1}"
+                };
+
+                foreach (var cmd in setTempCmds)
+                {
+                    Write(cmd);
+                    Thread.Sleep(100);
+                }
+
+                // 启动气流
                 Write("FLOW 1");
-                return true;
+
+                // 回读验证：优先读取 SETP?（设定温度），如不支持则回退 TEMP?
+                const int maxRetries = 5;
+                const double tol = 0.6;
+                for (int i = 0; i < maxRetries; i++)
+                {
+                    double set = GetSetTemperature();
+                    if (!double.IsNaN(set) && Math.Abs(set - targetTemp) <= tol)
+                        return true;
+
+                    Thread.Sleep(300);
+                }
+
+                Log($"温控设定验证失败：目标 {targetTemp:F1}℃ 未在容差内确认");
+                return false;
             }
-            catch
+            catch (Exception ex)
             {
+                Log($"SetTemperature异常: {ex.Message}");
                 return false;
             }
         }
 
         /// <summary>
-        /// 获取温控平台当前设定温度
+        /// 读取设定温度（优先）或当前温度（回退）。失败返回 NaN。
         /// </summary>
-        /// <returns>设定温度值</returns>
         public double GetSetTemperature()
         {
-            return double.TryParse(Query("TEMP?"), out double temp) ? temp : 0;
+            // 先尝试读取设定温度（Set Point）
+            string[] setpointCmds = new[] { "SETP?", "SETPOINT?", "SET:TEMP?" };
+            foreach (var cmd in setpointCmds)
+            {
+                string resp = Query(cmd);
+                if (double.TryParse(resp, out double temp))
+                    return temp;
+            }
+
+            // 回退：读取当前实际温度（注意：验证设定值时不应使用此值！）
+            string[] tempCmds = new[] { "TEMP?", "T?", "MEAS:TEMP?" };
+            foreach (var cmd in tempCmds)
+            {
+                string resp = Query(cmd);
+                if (double.TryParse(resp, out double temp))
+                    return temp;
+            }
+
+            return double.NaN;
         }
 
-        /// <summary>
-        /// 停止温控平台加热/制冷
-        /// </summary>
-        public void StopTemperatureControl()
+        public bool StopTemperatureControl()
         {
-            Write("FLOW 0");
+            if (_session == null) return false;
+            try
+            {
+                Write("FLOW 0");
+                Thread.Sleep(100);
+                Write("ABOR"); // 比 STOP 更通用的 SCPI 停止命令
+                return true;
+            }
+            catch { return false; }
         }
 
-        /// <summary>
-        /// 温控平台初始化：设置25℃并启动输出
-        /// </summary>
         public bool InitTempControllerTo25C()
         {
             if (_session == null) return false;
@@ -129,155 +413,147 @@ namespace OpticalModuleTestSystem.Drivers
                 Write("TEMP:RUN");
                 return true;
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         #endregion
 
-        #region ====================== Keysight 86100D 示波器 ======================
+        #region ====================== EXFO IQS-610P ======================
+
         /// <summary>
-        /// Keysight 86100D 切换测试通道（Tx/Rx）
+        /// 读取当前衰减值（dB），失败返回 -1
         /// </summary>
-        /// <param name="channel">通道类型："Tx" 或 "Rx"</param>
-        /// <returns>是否切换成功</returns>
-        public bool Switch86100DChannel(string channel)
+        public double GetEXFOAttenuation()
         {
-            if (_session == null) return false;
-            try
+            string[] queryCmds = new[]
             {
-                // 86100D 通道切换指令（根据实际设备SCPI手册调整，示例为通用格式）
-                // 假设：Tx对应通道1，Rx对应通道2
-                string channelCmd = channel.ToUpper() switch
+                "ATT?",
+                "INPUT:ATTENUATION?",
+                "ATTENUATION?",
+                "INP:ATT?"
+            };
+
+            foreach (var cmd in queryCmds)
+            {
+                string resp = Query(cmd);
+                if (!string.IsNullOrWhiteSpace(resp))
                 {
-                    "TX" => ":CHAN1:SEL",  // 选择发射端通道
-                    "RX" => ":CHAN2:SEL",  // 选择接收端通道
-                    _ => throw new ArgumentException("通道类型仅支持 Tx/Rx")
-                };
-                Write(channelCmd);
-                return true;
+                    var numStr = new string(resp.Where(c =>
+                        char.IsDigit(c) || c == '.' || c == '-' || c == '+' || c == 'E' || c == 'e').ToArray());
+
+                    if (double.TryParse(numStr, System.Globalization.NumberStyles.Float, null, out double val))
+                        return val;
+                }
             }
-            catch
-            {
-                return false;
-            }
+
+            return -1;
         }
 
-        #endregion
-
-        #region ====================== EXFO IQS-610P 光衰减/功率计 ======================
         /// <summary>
-        /// EXFO IQS-610P 设置光衰减值
+        /// 设置衰减值（0~60 dB），支持回读验证
         /// </summary>
-        /// <param name="attenuationDb">衰减值 (dB)，支持0.1dB步进</param>
-        /// <returns>是否设置成功</returns>
         public bool SetEXFOAttenuation(double attenuationDb)
         {
-            if (_session == null) return false;
             try
             {
-                // IQS-610P 标准SCPI指令：设置衰减值
-                Write($"ATT {attenuationDb} DB");
-                return true;
+                attenuationDb = Math.Clamp(attenuationDb, 0.0, 60.0);
+
+                string[] setCmds = new[]
+                {
+                    $"ATT {attenuationDb:F2}",
+                    $"INPUT:ATTENUATION {attenuationDb:F2}",
+                    $"ATTENUATION {attenuationDb:F2}",
+                    $"INP:ATT {attenuationDb:F2}"
+                };
+
+                foreach (var cmd in setCmds)
+                {
+                    Write(cmd);
+                    Thread.Sleep(50);
+                }
+
+                // 回读验证
+                Thread.Sleep(200);
+                double actual = GetEXFOAttenuation();
+                return actual >= 0 && Math.Abs(actual - attenuationDb) < 0.1;
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         /// <summary>
-        /// EXFO IQS-610P 读取当前光功率值
+        /// 读取光功率（dBm），失败返回 NaN
         /// </summary>
-        /// <returns>光功率值 (dBm)，读取失败返回 NaN</returns>
         public double ReadEXFOPower()
         {
-            if (_session == null) return double.NaN;
-            try
+            string[] queryCmds = new[]
             {
-                // IQS-610P 标准SCPI指令：读取光功率
-                string powerStr = Query(":POW?");
-                return double.TryParse(powerStr, out double power) ? power : double.NaN;
-            }
-            catch
+                "POWER?",
+                "MEASure:POWer?",
+                "READ:POWer?",
+                "POW?"
+            };
+
+            foreach (var cmd in queryCmds)
             {
-                return double.NaN;
+                string resp = Query(cmd);
+                if (!string.IsNullOrWhiteSpace(resp))
+                {
+                    var numStr = new string(resp.Where(c =>
+                        char.IsDigit(c) || c == '.' || c == '-' || c == '+' || c == 'E' || c == 'e').ToArray());
+
+                    if (double.TryParse(numStr, System.Globalization.NumberStyles.Float, null, out double val))
+                        return val;
+                }
             }
+
+            return double.NaN;
         }
 
-        /// <summary>
-        /// 光功率模块初始化：设置速率 + 应用校准系数（数据调正）
-        /// </summary>
-        /// <param name="lineRate">物理线速率（Gbps）</param>
-        /// <param name="calFactor">校准补偿系数</param>
         public bool InitPowerMeter(double lineRate, double calFactor)
         {
             if (_session == null) return false;
             try
             {
-                // 1. 设置速率档位
                 Write($":SENS:RATE {lineRate:F4}");
-                // 2. 应用校准系数（数据调正）
                 Write($":SENS:CORR:GAIN {calFactor:F3}");
-                // 3. 基础配置
                 Write(":SENS:POW:UNIT DBM");
                 Write(":SENS:POW:RANG:AUTO ON");
                 return true;
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         #endregion
 
         #region ====================== Anritsu MP1900A 误码仪 ======================
 
-        /// <summary>
-        /// Anritsu MP1900A 误码仪清零
-        /// </summary>
-        /// <returns>是否清零成功</returns>
         public bool ResetMP1900ABer()
         {
             if (_session == null) return false;
             try
             {
-                // MP1900A 标准SCPI指令：误码率清零
                 Write(":STAT:RES");
                 return true;
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         /// <summary>
-        /// Anritsu MP1900A 读取当前误码率
+        /// 读取误码率。MP1900A 无信号时可能返回 9.91E-001，调用方需自行判断。
         /// </summary>
-        /// <returns>误码率（如1.2E-5），读取失败返回 NaN</returns>
         public double ReadMP1900ABer()
         {
             if (_session == null) return double.NaN;
             try
             {
-                // MP1900A 标准SCPI指令：读取误码率
                 string berStr = Query(":STAT:BER?");
-                return double.TryParse(berStr, out double ber) ? ber : double.NaN;
-            }
-            catch
-            {
+                if (double.TryParse(berStr, out double ber))
+                    return ber;
                 return double.NaN;
             }
+            catch { return double.NaN; }
         }
 
-        /// <summary>
-        /// Anritsu MP1900A 启动误码测试
-        /// </summary>
-        /// <returns>是否启动成功</returns>
         public bool StartMP1900ATest()
         {
             if (_session == null) return false;
@@ -286,48 +562,31 @@ namespace OpticalModuleTestSystem.Drivers
                 Write(":INIT:IMM");
                 return true;
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
-        /// <summary>
-        /// 误码仪初始化：设置速率 + 自动校准灵敏度判决阈值
-        /// </summary>
         public bool InitBert(double lineRate)
         {
             if (_session == null) return false;
             try
             {
-                // 1. 设置工作速率
                 Write($":SOUR:RATE {lineRate:F4}");
-                // 2. 自动校准灵敏度（判决阈值）
                 Write(":SENS:THR:AUTO ONCE");
-                // 3. 复位计数器
                 Write(":STAT:RES");
                 return true;
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         #endregion
 
-        #region ====================== Anritsu MS9740A 光谱分析仪 ======================
-        /// <summary>
-        /// 光谱仪初始化：速率匹配带宽 + 加载测试模板 + 基础参数配置
-        /// </summary>
-        /// <param name="lineRate">物理线速率（Gbps）</param>
-        /// <param name="templateName">测试模板名称</param>
+        #region ====================== Anritsu MS9740A 光谱仪 ======================
+
         public bool InitSpectrumAnalyzer(double lineRate, string templateName)
         {
             if (_session == null) return false;
             try
             {
-                // 1. 根据速率自动匹配分辨率带宽
                 string rbw = lineRate switch
                 {
                     >= 100 => "0.02NM",
@@ -335,23 +594,28 @@ namespace OpticalModuleTestSystem.Drivers
                     >= 10 => "0.1NM",
                     _ => "0.1NM"
                 };
-                Write($":SENS:BAND:RES {rbw}");
 
-                // 2. 加载指定测试模板并开启模板检测
+                Write($":SENS:BAND:RES {rbw}");
                 Write($":CALC:MARK:TEMP:LOAD \"{templateName}\"");
                 Write(":CALC:MARK:TEMP:STAT ON");
-
-                // 3. 基础初始化：中心波长、参考电平、扫宽
                 Write(":SENS:WAV:CENT 1550NM");
                 Write(":DISP:WIND:TRAC:Y:RLEV -10DBM");
                 Write(":SENS:WAV:SPAN 20NM");
                 return true;
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
+
+        #endregion
+
+        #region ====================== 内部辅助 ======================
+
+        private void Log(string message)
+        {
+            Logger?.Invoke(message);
+            System.Diagnostics.Debug.WriteLine(message);
+        }
+
         #endregion
     }
 }

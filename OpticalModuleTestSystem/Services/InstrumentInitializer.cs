@@ -12,11 +12,29 @@ namespace OpticalModuleTestSystem.Services
             if (instrument == null) return false;
             using var gpib = new GpibCommunicator();
             if (!gpib.Connect(instrument.GpibAddress)) return false;
-
-            // 根据仪器型号自动匹配初始化逻辑
-            string model = instrument.Model.ToUpper();
+            // 在连接后执行自检：读取 IDN、清除状态并查询错误
             try
             {
+                var idnMain = gpib.Identify() ?? string.Empty;
+                try
+                {
+                    App.Current.Dispatcher.Invoke(() => instrument.IdnString = idnMain);
+                }
+                catch
+                {
+                    instrument.IdnString = idnMain;
+                }
+                // 清除状态寄存器并检查系统错误队列
+                gpib.ClearStatus();
+                var sysErr = gpib.QuerySystemError();
+                if (!string.IsNullOrWhiteSpace(sysErr) && !sysErr.StartsWith("0,"))
+                {
+                    // 如果有错误，记录到调试输出
+                    System.Diagnostics.Debug.WriteLine($"Device {instrument.GpibAddress} reported error: {sysErr}");
+                }
+
+                // 根据仪器型号自动匹配初始化逻辑
+                string model = instrument.Model.ToUpper();
                 if (model.Contains("ATS-545"))
                 {
                     return gpib.InitTempControllerTo25C();
@@ -77,6 +95,31 @@ namespace OpticalModuleTestSystem.Services
                             logs.Add($"{inst.Name} 第{attempt}次连接失败");
                             if (attempt < MAX_TRIES) System.Threading.Thread.Sleep(RETRY_DELAY_MS);
                             continue;
+                        }
+
+                        // 连接成功后先做自检：读取 IDN、清除状态并获取系统错误/状态字
+                        try
+                        {
+                            var idn = gpib.Identify() ?? string.Empty;
+                            try
+                            {
+                                App.Current.Dispatcher.Invoke(() => inst.IdnString = idn);
+                            }
+                            catch
+                            {
+                                inst.IdnString = idn;
+                            }
+                            logs.Add($"{inst.Name} IDN: {idn}");
+                            gpib.ClearStatus();
+                            var syserr = gpib.QuerySystemError();
+                            if (!string.IsNullOrWhiteSpace(syserr) && !syserr.StartsWith("0,"))
+                                logs.Add($"{inst.Name} 系统错误: {syserr}");
+                            var stb = gpib.GetStatusByte();
+                            if (stb >= 0) logs.Add($"{inst.Name} 状态字节: {stb}");
+                        }
+                        catch (Exception ex)
+                        {
+                            logs.Add($"{inst.Name} 自检异常: {ex.Message}");
                         }
 
                         bool ok = true;

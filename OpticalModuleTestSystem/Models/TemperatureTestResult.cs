@@ -59,6 +59,16 @@ namespace OpticalModuleTestSystem.Models
         public string RxEyeDiagramData { get; set; } = string.Empty;
 
         /// <summary>
+        /// Keysight 86100D 发射端（Tx）眼图结构化结果
+        /// </summary>
+        public EyeTxResult TxEye { get; set; } = new();
+
+        /// <summary>
+        /// Keysight 86100D 接收端（Rx）眼图结构化结果
+        /// </summary>
+        public EyeRxResult RxEye { get; set; } = new();
+
+        /// <summary>
         /// Anritsu MS9740A 光谱数据
         /// </summary>
         public string SpectrumData { get; set; } = string.Empty;
@@ -110,4 +120,27 @@ namespace OpticalModuleTestSystem.Models
         /// </summary>
         public double Ber_Reappear_EXFO_Power { get; set; }
     }
+
+    public class EyeTxResult
+    {
+        // 发射端眼图度量 — 使用 double? 以便在需要数值格式化时直接使用
+        public double? Margin { get; set; }        // 模板裕量 %
+        public double? Crossing { get; set; }      // 交叉点 %
+        public double? FallTime { get; set; }      // ps
+        public double? RiseTime { get; set; }      // ps
+        public double? AveragePower { get; set; }  // dBm
+        public double? JitterPP { get; set; }      // ps (p-p)
+        public double? JitterRMS { get; set; }     // ps (rms)
+        public double? ExtRatio { get; set; }      // dB
+    }
+
+    public class EyeRxResult
+    {
+        // 接收端眼图度量 — 使用 double? 以便在需要数值格式化时直接使用
+        public double? EyeWidth { get; set; }      // ps
+        public double? EyeHeight { get; set; }     // mV 或 μW
+        public double? FallTime { get; set; }      // ps
+        public double? RiseTime { get; set; }      // ps
+    }
+
 }

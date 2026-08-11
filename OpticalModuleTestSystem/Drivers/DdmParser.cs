@@ -376,14 +376,25 @@ namespace OpticalModuleTestSystem.Drivers
                 return false;
             }
 
-            if (!iicCom.Read_Page(pageAddr, length))
+            if (iicCom == null)
+                return false;
+
+            try
+            {
+                // IICCom 提供的接口为 ReadPage(page, length) 返回字节数组
+                byte[] page = iicCom.ReadPage(pageAddr, length);
+                if (page == null || page.Length < length)
+                    return false;
+
+                // 返回副本到 out 参数
+                readData = new byte[page.Length];
+                Array.Copy(page, 0, readData, 0, page.Length);
+                return true;
+            }
+            catch
             {
                 return false;
             }
-
-            // 原始数据从IIC类读取（需对应IICCom类的Read_Data属性）
-            readData = IICCom.Read_Data;
-            return true;
         }
         #endregion
     }

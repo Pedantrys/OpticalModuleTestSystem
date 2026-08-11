@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
@@ -141,45 +142,51 @@ namespace OpticalModuleTestSystem.Drivers
         }
 
         /// <summary>
-        /// 读取指定页数据
+        /// 读取 IIC 页面数据（返回字节数组版本）
         /// </summary>
-        /// <param name="page">页地址：A0 / A2</param>
-        /// <param name="len">读取长度</param>
-
-        public bool ReadPage(string page, int length)
+        /// <param name="page">页名 "A0" 或 "A2"</param>
+        /// <param name="length">读取长度 1-256</param>
+        /// <returns>读取到的字节数组（副本）</returns>
+        /// <exception cref="ArgumentOutOfRangeException">长度非法</exception>
+        /// <exception cref="ArgumentException">页名非法</exception>
+        /// <exception cref="InvalidOperationException">串口未打开</exception>
+        /// <exception cref="IOException">读取失败</exception>
+        public byte[] ReadPage(string page, int length)
         {
-            // 读取硬件返回数据并写入对应缓冲区
-            // 注：此处需根据实际硬件返回协议解析，以下为标准框架
-            try
+            if (length <= 0 || length > 256)
+                throw new ArgumentOutOfRangeException(nameof(length), "读取长度必须在 1-256 之间");
+
+            string pageUpper = page?.ToUpperInvariant();
+            if (pageUpper != "A0" && pageUpper != "A2")
+                throw new ArgumentException("页名必须是 A0 或 A2", nameof(page));
+
+            lock (_lock)
             {
-                lock (_lock)
+                if (_com == null || !_com.IsOpen)
+                    throw new InvalidOperationException("IIC 串口未打开或已断开");
+
+                byte deviceAddr = pageUpper == "A0" ? (byte)0xA0 : (byte)0xA2;
+                byte[] targetBuf = pageUpper == "A0" ? _a0Buf : _a2Buf;
+
+                // 每 16 字节一页循环读取
+                for (int pageStart = 0; pageStart < length; pageStart += 16)
                 {
-                    if (_com == null || !_com.IsOpen) return false;
+                    if (!ReadOnePage(deviceAddr, (byte)pageStart, out byte[] pageData))
+                        throw new IOException($"IIC 读取失败：{page} 页偏移 0x{pageStart:X2} 无响应或校验错误");
 
-                    if (length > 256) length = 256;
-
-                    //byte deviceAddr = page.ToUpper() == "A0" ? (byte)160 : (byte)162;
-                    byte deviceAddr = page.ToUpper() == "A0" ? (byte)0xA0 : (byte)0xA2;
-                    // A0=0xA0, A2=0xA2
-                    byte[] targetBuf = page.ToUpper() == "A0" ? _a0Buf : _a2Buf;
-
-                    // 每 16 字节一页循环读取
-                    for (int pageStart = 0; pageStart < length; pageStart += 16)
-                    {
-                        if (!ReadOnePage(deviceAddr, (byte)pageStart, out byte[] pageData))
-                            return false;
-                        Array.Copy(pageData, 0, targetBuf, pageStart, Math.Min(16, length - pageStart));
-                    }
-
-                    // 将完整数据复制到静态 Read_Data（兼容旧接口）
-                    Array.Copy(targetBuf, 0, Read_Data, 0, length);
-                    return true;
+                    int copyLen = Math.Min(16, length - pageStart);
+                    Array.Copy(pageData, 0, targetBuf, pageStart, copyLen);
                 }
-            }
-            catch (Exception ex)
-            {
-                // 不要吞掉异常，输出日志或重新抛出
-                throw new Exception($"IIC读取失败: {ex.Message}", ex);
+
+                // 返回独立副本，防止外部修改内部缓冲区
+                byte[] result = new byte[length];
+                Array.Copy(targetBuf, 0, result, 0, length);
+
+                // 兼容旧接口：同步写入静态 Read_Data
+                if (Read_Data != null && Read_Data.Length >= length)
+                    Array.Copy(targetBuf, 0, Read_Data, 0, length);
+
+                return result;
             }
         }
 
@@ -275,8 +282,5 @@ namespace OpticalModuleTestSystem.Drivers
                 _disposed = true;
             }
         }
-        // 以下为兼容旧接口而保留，实际可删除
-        public bool Read_Page(string page, int length) => ReadPage(page, length);
-        public void ReadPageOld(string page, int len) => ReadPage(page, len);
     }
 }
